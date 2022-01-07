@@ -1,7 +1,6 @@
 import rollup_commonjs, { RollupCommonJSOptions } from "@rollup/plugin-commonjs";
 import { Options as AcornOptions, parse } from "acorn";
 import { Plugin } from "esbuild";
-import findCacheDir from "find-cache-dir";
 import { promises } from "fs";
 import { basename, dirname, relative } from "path";
 
@@ -11,13 +10,6 @@ export interface CommonJSPluginOptions {
    * @default /\.c?js$/
    */
   filter?: RegExp;
-
-  /**
-   * which files to use cache, the cached files are stored at
-   * node_modules/.esbuild-plugin-commonjs.
-   * @default true
-   */
-  cache?: boolean | RegExp | ((path: string) => boolean);
 
   /**
    * fix re-export names
@@ -34,16 +26,7 @@ export interface CommonJSPluginOptions {
   options?: RollupCommonJSOptions;
 }
 
-export function commonjs({
-  filter = /\.c?js$/,
-  cache = true,
-  exports = [],
-  options,
-}: CommonJSPluginOptions = {}): Plugin {
-  if (cache) {
-    findCacheDir({ name: "esbuild-plugin-commonjs", create: true, thunk: true });
-  }
-
+export function commonjs({ filter = /\.c?js$/, exports = [], options }: CommonJSPluginOptions = {}): Plugin {
   return {
     name: "commonjs",
     setup({ onResolve, onLoad, resolve, esbuild, initialOptions }) {

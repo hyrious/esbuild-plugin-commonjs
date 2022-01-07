@@ -9,6 +9,8 @@ const result = await build({
   format: "esm",
   plugins: [
     commonjs({
+      // // not react-dom.js, which includes re-exports
+      // filter: /!\/react-dom\.js/,
       exports: [[/react-dom\.js/, ["h"]]],
     }),
   ],

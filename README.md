@@ -15,6 +15,8 @@ npm add -D @hyrious/esbuild-plugin-commonjs
   let your package manager show warnings, but we actually not depend on `rollup`.
   You can copy the `.pnpmfile.cjs` in this repo to hide the warnings if you are
   using pnpm, or live with them.
+- Tree-shaking is not supported on re-exports because the converted
+  esm code is not able to let esbuild shake it.
 
 ## Usage
 
