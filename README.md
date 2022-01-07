@@ -2,6 +2,20 @@
 
 The [@rollup/plugin-commonjs](https://github.com/rollup/plugins/blob/master/packages/commonjs) as esbuild plugin.
 
+## Install
+
+```bash
+npm add -D @hyrious/esbuild-plugin-commonjs
+```
+
+**Note:**
+
+- Requires esbuild &ge; 0.14.8 to use the new `resolve()` api.
+- `@rollup/plugin-commonjs` is a dependency, it's peer dependency `rollup` may
+  let your package manager show warnings, but we actually not depend on `rollup`.
+  You can copy the `.pnpmfile.cjs` in this repo to hide the warnings if you are
+  using pnpm, or live with them.
+
 ## Usage
 
 <!-- prettier-ignore -->
@@ -21,7 +35,7 @@ require("esbuild").build({
 ## Options
 
 ```js
-commonjs({ filter: /\.c?js$/, cache: true });
+commonjs({ filter: /\.c?js$/, cache: true, options: {} });
 ```
 
 **filter** (default: `/\.c?js$/`)
@@ -35,26 +49,10 @@ for better performance.
 A boolean or RegExp or function to turn on cache for some files that are likely
 won't change. When it is `true`, it will be applied to files in `node_modules`.
 
-## what it do
+**options**
 
-This plugin converts all CommonJS modules to ES modules, so you won't see any
-`__require` (expect those dynamic `require`s, esbuild will warn you about them)
-when bundling to esm format.
-
-For example, it will convert this code:
-
-```js
-var React = require("react");
-exports.__esModule = true;
-exports.h = React.createElement;
-```
-
-To:
-
-```js
-import React from "react";
-export var h = React.createElement;
-```
+An object passed to `@rollup/plugin-commonjs`, note that not all of them are
+supported, for example this plugin will ignore the `include/exclude` fields.
 
 ## License
 

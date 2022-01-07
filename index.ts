@@ -1,8 +1,9 @@
 import rollup_commonjs, { RollupCommonJSOptions } from "@rollup/plugin-commonjs";
 import { Options as AcornOptions, parse } from "acorn";
 import { Plugin } from "esbuild";
+import findCacheDir from "find-cache-dir";
 import { promises } from "fs";
-import { dirname } from "path";
+import { basename, dirname, relative } from "path";
 
 export interface CommonJSPluginOptions {
   /**
@@ -25,9 +26,17 @@ export interface CommonJSPluginOptions {
 }
 
 export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJSPluginOptions = {}): Plugin {
+  if (cache) {
+    findCacheDir({ name: "esbuild-plugin-commonjs", create: true, thunk: true });
+  }
+
   return {
     name: "commonjs",
-    setup({ onResolve, onLoad, resolve }) {
+    setup({ onResolve, onLoad, resolve, esbuild, initialOptions }) {
+      const cwd = process.cwd();
+      const outdir =
+        initialOptions.outdir || (initialOptions.outfile ? dirname(initialOptions.outfile) : cwd);
+      const entries = initialOptions.entryPoints ? Object.values(initialOptions.entryPoints) : [];
       const { resolveId, load, transform } = rollup_commonjs(options);
 
       const transformContext = {
@@ -46,7 +55,7 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
         },
 
         getModuleInfo: (moduleId: string) => {
-          console.log("getModuleInfo", { moduleId });
+          return { isEntry: entries.includes(moduleId) };
         },
       };
 
@@ -55,18 +64,26 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
 
       const isUnchanged = (result: any) => !result || result.meta?.commonjs?.isCommonJS === false;
 
-      onLoad({ filter: /.*/, namespace: "file" }, async args => {
+      onLoad({ filter, namespace: "file" }, async args => {
         const code = await promises.readFile(args.path, "utf8");
         const transformed = unify(await transform.call(transformContext, code, args.path));
         if (isUnchanged(transformed)) return null;
         const { code: js, map } = transformed;
+        map.sources = [basename(args.path)];
+        map.sourcesContent = [code];
         return { contents: js + `\n//# sourceMappingURL=${map.toUrl()}` };
       });
 
       const context = {
+        resolving: new Set<string>(),
         resolve: async (path: string, importer: string, { skipSelf = true } = {}) => {
+          const key = `${path}:${importer}`;
+          if (context.resolving.has(key) && skipSelf)
+            throw new Error("[esbuild-plugin-commonjs]: not able to skipSelf");
+          context.resolving.add(key);
           const result = await resolve(path, { importer, resolveDir: dirname(importer) });
-          return { id: result.path, external: true };
+          context.resolving.delete(key);
+          return { id: result.path, external: result.external };
         },
       };
 
@@ -77,8 +94,18 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
       });
 
       onLoad({ filter: /.*/, namespace: "commonjs-virtual-module" }, async args => {
-        const { code } = unify(await load.call(context, args.path));
-        return { contents: code, resolveDir: args.pluginData?.resolveDir };
+        const resolveDir = args.pluginData?.resolveDir;
+        let loaded = unify(await load.call(context, args.path));
+        try {
+          // try to make sourcemap point back to the original file
+          const { code, warnings } = await esbuild.transform(loaded.code, {
+            sourcefile: relative(outdir, args.path.replace(/^\0/, "")),
+            sourcemap: "inline",
+          });
+          return { contents: code, warnings, resolveDir };
+        } catch {
+          return { contents: loaded.code, resolveDir };
+        }
       });
     },
   };

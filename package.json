@@ -13,14 +13,15 @@
   "author": "hyrious <hyrious@outlook.com>",
   "license": "MIT",
   "scripts": {
-    "build": "esbuild --bundle --external:esbuild --external:acorn --platform=node --target=node12 --outfile=index.js --sourcemap --sources-content=false index.ts",
+    "build": "esbuild-dev scripts/build.ts",
     "test": "esbuild-dev index.test.ts"
   },
   "peerDependencies": {
-    "esbuild": "*"
+    "esbuild": ">=0.14.8"
   },
   "dependencies": {
     "@rollup/plugin-commonjs": "^21.0.1",
+    "find-cache-dir": "^3.3.2",
     "acorn": "^8.7.0"
   },
   "devDependencies": {
