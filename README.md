@@ -46,10 +46,14 @@ A RegExp passed to [`onLoad()`](https://esbuild.github.io/plugins/#on-load) to
 match commonjs modules, it is recommended to set a custom filter to skip files
 for better performance.
 
-**cache** (default: `true`)
+**exports** (type: `[filter: RegExp, names: string[]][]`)
 
-A boolean or RegExp or function to turn on cache for some files that are likely
-won't change. When it is `true`, it will be applied to files in `node_modules`.
+Fix re-exports because esbuild does not support `syntheticNamedExports`.
+Example:
+
+```js
+exports: [[/\/react\.js$/, ["createElement"]]];
+```
 
 **options**
 
