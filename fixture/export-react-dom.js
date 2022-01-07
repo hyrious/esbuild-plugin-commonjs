@@ -1,1 +1,1 @@
-export { render } from "./react-dom";
+export { h } from "./react-dom";

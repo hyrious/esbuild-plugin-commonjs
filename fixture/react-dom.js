@@ -1,8 +1,7 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.render = void 0;
-const react_1 = require("react");
-function render() {
-  return react_1.createElement;
+
+if (process.env.NODE_ENV === "production") {
+  module.exports = require("./react.min.js");
+} else {
+  module.exports = require("./react.js");
 }
-exports.render = render;

@@ -37,7 +37,7 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
       const outdir =
         initialOptions.outdir || (initialOptions.outfile ? dirname(initialOptions.outfile) : cwd);
       const entries = initialOptions.entryPoints ? Object.values(initialOptions.entryPoints) : [];
-      const { resolveId, load, transform } = rollup_commonjs(options);
+      const { resolveId, load, transform, moduleParsed } = rollup_commonjs(options);
 
       const transformContext = {
         parse: (input: string, options?: AcornOptions) =>
@@ -94,8 +94,21 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
       });
 
       onLoad({ filter: /.*/, namespace: "commonjs-virtual-module" }, async args => {
+        // hack 1: resolve the waiting internal promise early
+        if (args.path.endsWith("?commonjs-proxy")) {
+          moduleParsed({ id: args.path.slice(1, -15), meta: { commonjs: { isCommonJS: true } } });
+        }
         const resolveDir = args.pluginData?.resolveDir;
-        let loaded = unify(await load.call(context, args.path));
+        let loaded = unify(await load(args.path));
+        // hack 2: fix the missing named export "exports"
+        if (args.path.endsWith("?commonjs-module") && loaded.code.includes(" as __module}")) {
+          let right = loaded.code.lastIndexOf(" as __module}");
+          let left = loaded.code.lastIndexOf("{", right);
+          let name = loaded.code.slice(left + 1, right);
+          loaded.code += `\nexport var exports = ${name}["exports"]`;
+        }
+        // hack 3: fix the missing names in reexports
+        // ? implement "syntheticNamedExports"
         try {
           // try to make sourcemap point back to the original file
           const { code, warnings } = await esbuild.transform(loaded.code, {
