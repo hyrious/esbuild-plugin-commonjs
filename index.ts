@@ -20,12 +20,26 @@ export interface CommonJSPluginOptions {
   cache?: boolean | RegExp | ((path: string) => boolean);
 
   /**
+   * fix re-export names
+   * @example
+   * exports: [
+   *   [/...\/react\.js/, ['createElement']]
+   * ]
+   */
+  exports?: [filter: RegExp, names: string[]][];
+
+  /**
    * options passed to @rollup/plugin-commonjs, not all of them are supported.
    */
   options?: RollupCommonJSOptions;
 }
 
-export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJSPluginOptions = {}): Plugin {
+export function commonjs({
+  filter = /\.c?js$/,
+  cache = true,
+  exports = [],
+  options,
+}: CommonJSPluginOptions = {}): Plugin {
   if (cache) {
     findCacheDir({ name: "esbuild-plugin-commonjs", create: true, thunk: true });
   }
@@ -68,7 +82,31 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
         const code = await promises.readFile(args.path, "utf8");
         const transformed = unify(await transform.call(transformContext, code, args.path));
         if (isUnchanged(transformed)) return null;
-        const { code: js, map } = transformed;
+        let { code: js, map, syntheticNamedExports } = transformed;
+
+        if (syntheticNamedExports) {
+          const rewrite = exports.find(([filter]) => filter.test(args.path));
+          if (rewrite) {
+            const namedExports = rewrite[1];
+            let right = js.lastIndexOf(` as ${syntheticNamedExports}`);
+            let left = js.lastIndexOf("{ ", right);
+            let start = js.lastIndexOf("export ", left);
+            let end = js.indexOf("}", right);
+            const isReExport = js.slice(end + 1).startsWith(" from");
+            if (isReExport) {
+              js = `${js.slice(0, start)}import ${js.slice(left)}; export { ${js.slice(right + 4, end)} };`;
+              for (const name of namedExports) {
+                js += ` export var ${name} = syntheticNamedExports[${JSON.stringify(name)}];`;
+              }
+            } else {
+              let variable = js.slice(left + 2, right);
+              for (const name of namedExports) {
+                js += `; export var ${name} = ${variable}[${JSON.stringify(name)}]`;
+              }
+            }
+          }
+        }
+
         map.sources = [basename(args.path)];
         map.sourcesContent = [code];
         return { contents: js + `\n//# sourceMappingURL=${map.toUrl()}` };
@@ -94,21 +132,19 @@ export function commonjs({ filter = /\.c?js$/, cache = true, options }: CommonJS
       });
 
       onLoad({ filter: /.*/, namespace: "commonjs-virtual-module" }, async args => {
-        // hack 1: resolve the waiting internal promise early
         if (args.path.endsWith("?commonjs-proxy")) {
           moduleParsed({ id: args.path.slice(1, -15), meta: { commonjs: { isCommonJS: true } } });
         }
         const resolveDir = args.pluginData?.resolveDir;
         let loaded = unify(await load(args.path));
-        // hack 2: fix the missing named export "exports"
+
         if (args.path.endsWith("?commonjs-module") && loaded.code.includes(" as __module}")) {
           let right = loaded.code.lastIndexOf(" as __module}");
           let left = loaded.code.lastIndexOf("{", right);
           let name = loaded.code.slice(left + 1, right);
           loaded.code += `\nexport var exports = ${name}["exports"]`;
         }
-        // hack 3: fix the missing names in reexports
-        // ? implement "syntheticNamedExports"
+
         try {
           // try to make sourcemap point back to the original file
           const { code, warnings } = await esbuild.transform(loaded.code, {

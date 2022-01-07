@@ -7,11 +7,19 @@ const result = await build({
   bundle: true,
   external: ["react"],
   format: "esm",
-  plugins: [commonjs()],
+  plugins: [
+    commonjs({
+      exports: [[/react-dom\.js/, ["h"]]],
+    }),
+  ],
+  treeShaking: true,
   minifySyntax: true,
   sourcemap: "external",
   write: false,
   outdir: "dist",
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"),
+  },
 }).catch(() => process.exit(1));
 
 for (const { path, text } of result.outputFiles) {
