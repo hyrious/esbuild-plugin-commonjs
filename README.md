@@ -1,22 +1,41 @@
-## @hyrious/esbuild-plugin-commonjs
+# @hyrious/esbuild-plugin-commonjs
 
-The [@rollup/plugin-commonjs](https://github.com/rollup/plugins/blob/master/packages/commonjs) as esbuild plugin.
+<p align=center>(🚧 Working In Progress 🚧)</p>
+
+An esbuild plugin to help you bundle commonjs external modules.
+
+This plugin is used to address [evanw/esbuild#1467][1], where you want to
+bundle some commonjs external modules in es modules context. But accidentally
+you see a `__require` in your code prints error at runtime and forbids
+other bundlers from analyzing the dependencies. For example:
+
+```js
+// some commonjs library, like react-dom
+var React = require('react')
+
+// your esm code
+export { render } from 'react-dom'
+
+// after esbuild --bundle
+var React = __require('react')  // <- you dislike this
+"..."
+export { render }
+
+// with this plugin
+import __import_react from 'react'  // <- you want this
+var React = __import_react
+"..."
+export { render }
+```
+
+This plugin was inspired by [a comment under esbuild#1921][4]
+and the [prototype][5] was done after a day.
 
 ## Install
 
 ```bash
 npm add -D @hyrious/esbuild-plugin-commonjs
 ```
-
-**Note:**
-
-- Requires esbuild &ge; 0.14.8 to use the new `resolve()` api.
-- `@rollup/plugin-commonjs` is a dependency, it's peer dependency `rollup` may
-  let your package manager show warnings, but we actually not depend on `rollup`.
-  You can copy the `.pnpmfile.cjs` in this repo to hide the warnings if you are
-  using pnpm, or live with them.
-- Tree-shaking is not supported on re-exports because the converted
-  esm code is not able to let esbuild shake it.
 
 ## Usage
 
@@ -37,7 +56,7 @@ require("esbuild").build({
 ## Options
 
 ```js
-commonjs({ filter: /\.c?js$/, cache: true, options: {} });
+commonjs({ filter: /\.c?js$/ });
 ```
 
 **filter** (default: `/\.c?js$/`)
@@ -46,20 +65,25 @@ A RegExp passed to [`onLoad()`](https://esbuild.github.io/plugins/#on-load) to
 match commonjs modules, it is recommended to set a custom filter to skip files
 for better performance.
 
-**exports** (type: `[filter: RegExp, names: string[]][]`)
+## This is not equal to [@rollup/plugin-commonjs][2].
 
-Fix re-exports because esbuild does not support `syntheticNamedExports`.
-Example:
+This plugin does not convert your commonjs file into es modules, it just
+replace those `require("x")` expressions with import statements. It turns out
+that esbuild can handle this kind of mixed module (having import statement and
+`module.exports` at the same time) correctly.
 
-```js
-exports: [[/\/react\.js$/, ["createElement"]]];
-```
-
-**options**
-
-An object passed to `@rollup/plugin-commonjs`, note that not all of them are
-supported, for example this plugin will ignore the `include/exclude` fields.
+The one acting the same exists in the branch <q>rollup</q>, but is not a good
+solution. It depends on a feature [<q>syntheticNamedExports</q>][3] and evanw
+(the author of esbuild) doesn't want to implement something out of spec.
+Without which you have to tell the plugin every single commonjs file's named
+exports, which sucks obviously.
 
 ## License
 
 MIT @ [hyrious](https://github.com/hyrious)
+
+[1]: https://github.com/evanw/esbuild/issues/1467
+[2]: https://github.com/rollup/plugins/blob/master/packages/commonjs
+[3]: https://github.com/evanw/esbuild/issues/1919
+[4]: https://github.com/evanw/esbuild/issues/1921#issuecomment-1010490128
+[5]: https://gist.github.com/hyrious/7120a56c593937457c0811443563e017
