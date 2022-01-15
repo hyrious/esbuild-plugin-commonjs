@@ -87,7 +87,7 @@ export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
             offset += name.length - (end - start);
           }
 
-          contents = [...imports, "module.exports;", contents].join("");
+          contents = [...imports, "exports;", contents].join("");
 
           return { contents };
         }
