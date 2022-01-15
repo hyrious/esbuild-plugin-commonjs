@@ -1,7 +1,5 @@
 # @hyrious/esbuild-plugin-commonjs
 
-<p align=center>(🚧 Working In Progress 🚧)</p>
-
 An esbuild plugin to help you bundle commonjs external modules.
 
 This plugin is used to address [evanw/esbuild#1467][1], where you want to
@@ -11,21 +9,21 @@ other bundlers from analyzing the dependencies. For example:
 
 ```js
 // some commonjs library, like react-dom
-var React = require('react')
+var React = require("react");
 
 // your esm code
-export { render } from 'react-dom'
+export { render } from "react-dom";
 
 // after esbuild --bundle
-var React = __require('react')  // <- you dislike this
-"..."
-export { render }
+var React = __require("react"); // <- you dislike this
+("...");
+export { render };
 
 // with this plugin
-import __import_react from 'react'  // <- you want this
-var React = __import_react
-"..."
-export { render }
+import __import_react from "react"; // <- you want this
+var React = __import_react;
+("...");
+export { render };
 ```
 
 This plugin was inspired by [a comment under esbuild#1921][4]

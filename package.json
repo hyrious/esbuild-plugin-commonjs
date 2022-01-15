@@ -13,11 +13,11 @@
   "author": "hyrious <hyrious@outlook.com>",
   "license": "MIT",
   "scripts": {
-    "build": "echo 0",
-    "test": "echo 1"
+    "build": "esbuild index.ts --bundle --external:esbuild --sourcemap --sources-content=false --outfile=index.js --platform=node --target=node12 --minify-syntax",
+    "test": "esbuild-dev index.test.ts"
   },
   "peerDependencies": {
-    "esbuild": ">=0.14.8"
+    "esbuild": "*"
   },
   "devDependencies": {
     "@hyrious/esbuild-dev": "^0.7.2",
