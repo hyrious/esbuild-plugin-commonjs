@@ -1,6 +1,7 @@
 import type { Message, Plugin } from "esbuild";
 import { promises } from "fs";
 import { Lexer } from "./lexer";
+import { cachedReduce, orderedUniq } from "./utils";
 
 export interface CommonJSOptions {
   /**
@@ -49,6 +50,7 @@ export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
         }
 
         let lines = contents.split("\n");
+        let getOffset = cachedReduce(lines, (a, b) => a + 1 + b.length, 0);
 
         if (warnings && (warnings = warnings.filter(e => e.text.includes('"require" to "esm"'))).length) {
           let edits: [start: number, end: number, replace: string][] = [];
@@ -67,19 +69,14 @@ export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
             let name = makeName(path);
             let import_statement = `import ${name} from ${JSON.stringify(path)};`;
 
-            // TODO: optimize this calculation by caching sums
-            let offset = lines
-              .slice(0, line - 1)
-              .map(line => line.length)
-              .reduce((a, b) => a + 1 + b, 0);
-
+            let offset = getOffset(line - 1);
             edits.push([offset + column, offset + rightBrace, name]);
             imports.push(import_statement);
           }
 
           if (imports.length === 0) return null;
-          // TODO: maybe should keep order after unique
-          imports = [...new Set(imports)];
+
+          imports = orderedUniq(imports);
 
           let offset = 0;
           for (const [start, end, name] of edits) {
