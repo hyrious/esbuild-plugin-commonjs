@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Bundle commonjs externals in es module in esbuild.",
   "main": "index.js",
+  "types": "index.ts",
+  "files": [
+    "index.js",
+    "index.js.map",
+    "index.ts",
+    "lexer.ts",
+    "utils.ts"
+  ],
   "keywords": [
     "esbuild",
     "plugin",
@@ -13,7 +21,7 @@
   "author": "hyrious <hyrious@outlook.com>",
   "license": "MIT",
   "scripts": {
-    "build": "esbuild index.ts --bundle --external:esbuild --sourcemap --sources-content=false --outfile=index.js --platform=node --target=node12 --minify-syntax",
+    "build": "esbuild index.ts --bundle --external:esbuild --sourcemap --sources-content=false --outfile=index.js --platform=node --target=node12",
     "test": "esbuild-dev index.test.ts"
   },
   "peerDependencies": {
