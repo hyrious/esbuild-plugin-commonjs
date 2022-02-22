@@ -1,5 +1,5 @@
 if (process.env.NODE_ENV !== "production") {
   var React = require("react");
 
-  module.exports = { render: () => "noop" };
+  exports.render = () => "noop";
 }

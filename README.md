@@ -54,7 +54,7 @@ require("esbuild").build({
 ## Options
 
 ```js
-commonjs({ filter: /\.c?js$/ });
+commonjs({ filter: /\.c?js$/, transform: false });
 ```
 
 **filter** (default: `/\.c?js$/`)
@@ -62,6 +62,44 @@ commonjs({ filter: /\.c?js$/ });
 A RegExp passed to [`onLoad()`](https://esbuild.github.io/plugins/#on-load) to
 match commonjs modules, it is recommended to set a custom filter to skip files
 for better performance.
+
+**transform** (default: `false`)
+
+Try to transform commonjs to es modules. This trick is done with [`cjs-module-lexer`](https://github.com/nodejs/cjs-module-lexer)
+to match the native (node) behavior as much as possible. Because this
+transformation may cause many bugs around the interop between cjs and esm,
+it can also accept a function to filter in the "safe to convert" modules by yourself.
+
+Type:
+
+```ts
+transform: boolean | ((path: string) => {
+  behavior?: "node" | "babel", exports?: string[], sideEffects?: boolean
+} | null | void)
+```
+
+By default, if you toggle `transform` to `true`, it will convert this code:
+
+```js
+exports.__esModule = true;
+exports.default = {};
+exports.foo = 42;
+```
+
+To this:
+
+<!-- prettier-ignore -->
+```js
+var exports = {}, module = { exports };
+{
+  exports.__esModule = true;
+  exports.default = {};
+  exports.foo = 42;
+}
+export default exports;
+var { foo } = exports;
+export { foo };
+```
 
 ## This is not equal to [@rollup/plugin-commonjs][2].
 
@@ -75,6 +113,12 @@ solution. It depends on a feature [<q>syntheticNamedExports</q>][3] and evanw
 (the author of esbuild) doesn't want to implement something out of spec.
 Without which you have to tell the plugin every single commonjs file's named
 exports, which sucks obviously.
+
+## Changelog
+
+### 0.1.1
+
+Add experimental option `transform` and `transformConfig`.
 
 ## License
 

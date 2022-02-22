@@ -1,17 +1,95 @@
 import type { Message, Plugin } from "esbuild";
 import { promises } from "fs";
 import { Lexer } from "./lexer";
-import { cachedReduce, orderedUniq } from "./utils";
+import { cachedReduce, makeLegalIdentifier, orderedUniq } from "./utils";
 
 export interface CommonJSOptions {
   /**
    * The regexp passed to onLoad() to match commonjs files.
+   *
    * @default /\.c?js$/
    */
   filter?: RegExp;
+
+  /**
+   * _Experimental_: Transform commonjs to es modules. You have to install
+   * `cjs-module-lexer` to let it work.
+   *
+   * When `true`, the plugin tries to wrap the commonjs module into:
+   *
+   * ```js
+   * var exports = {}, module = { exports };
+   * {
+   *   // ... original content ...
+   * }
+   * exports = module.exports;
+   * // the exported names are extracted by cjs-module-lexer
+   * export default exports;
+   * var { something, "a-b" as a_b } = exports;
+   * export { something, a_b as "a-b" };
+   * ```
+   *
+   * @default false
+   */
+  transform?: boolean | ((path: string) => TransformConfig | null | void);
+
+  /**
+   * _Experimental_: This options acts as a fallback of the `transform` option above.
+   */
+  transformConfig?: Pick<TransformConfig, "behavior" | "sideEffects">;
 }
 
-export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
+export interface TransformConfig {
+  /**
+   * If `"babel"`, it will check if there be `exports.__esModule`,
+   * then export `exports.default`. i.e. The wrapper code becomes:
+   *
+   * ```js
+   * export default exports.__esModule ? exports.default : exports;
+   * ```
+   *
+   * @default "node"
+   */
+  behavior?: "babel" | "node";
+
+  /**
+   * Also include these named exports if they aren't recognized automatically.
+   *
+   * @example ["something"]
+   */
+  exports?: string[];
+
+  /**
+   * If `false`, slightly change the result to make it side-effect free.
+   * But it doesn't actually remove many code. So you maybe not need this.
+   *
+   * ```js
+   * var mod;
+   * var exports = /+ @__PURE__ +/ ((exports, module) => {
+   *   // ... original content ...
+   *   return module.exports;
+   * })((mod = { exports: {} }).exports, mod);
+   * export default exports;
+   * var a_b = /+ @__PURE__ +/ (() => exports['a-b'])();
+   * var something = /+ @__PURE__ +/ (() => exports.something)();
+   * export { a_b as "a-b", something };
+   * ```
+   *
+   * Note: the `/+ @__PURE__ +/` above is actually `'/' + '* @__PURE__ *' + '/'`.
+   */
+  sideEffects?: boolean;
+}
+
+export function commonjs({
+  filter = /\.c?js$/,
+  transform = false,
+  transformConfig,
+}: CommonJSOptions = {}): Plugin {
+  let init_cjs_module_lexer: Promise<typeof import("cjs-module-lexer")> | undefined;
+  if (transform) {
+    init_cjs_module_lexer = import("cjs-module-lexer");
+  }
+
   return {
     name: "commonjs",
     setup({ onLoad, esbuild }) {
@@ -21,6 +99,13 @@ export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
       const lexer = new Lexer();
 
       onLoad({ filter }, async args => {
+        let parseCJS: typeof import("cjs-module-lexer").parse | undefined;
+        if (init_cjs_module_lexer) {
+          const { init, parse } = await init_cjs_module_lexer;
+          await init();
+          parseCJS = parse;
+        }
+
         let contents: string;
         try {
           contents = await read(args.path, "utf8");
@@ -28,10 +113,81 @@ export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
           return null;
         }
 
+        const willTransform = transform === true || (typeof transform === "function" && transform(args.path));
+
+        let cjsExports: ReturnType<NonNullable<typeof parseCJS>> | undefined;
+        if (parseCJS && willTransform) {
+          // move sourcemap to the end of the transformed file
+          let sourcemapIndex = contents.lastIndexOf("//# sourceMappingURL=");
+          let sourcemap: string | undefined;
+          if (sourcemapIndex !== -1) {
+            sourcemap = contents.slice(sourcemapIndex);
+            let sourcemapEnd = sourcemap.indexOf("\n");
+            if (sourcemapEnd !== -1 && sourcemap.slice(sourcemapEnd + 1).trimStart().length > 0) {
+              // if there's code after sourcemap, it is invalid, don't do this.
+              sourcemap = undefined;
+            } else {
+              contents = contents.slice(0, sourcemapIndex);
+            }
+          }
+          // transform commonjs to es modules, easy mode
+          cjsExports = parseCJS(contents);
+          let { behavior, exports, sideEffects } =
+            typeof willTransform === "object" ? willTransform : ({} as TransformConfig);
+          behavior ??= transformConfig?.behavior ?? "node";
+          exports = orderedUniq(cjsExports.exports.concat(exports ?? []));
+          sideEffects ??= transformConfig?.sideEffects ?? true;
+          let exportDefault =
+            behavior === "node"
+              ? "export default exports;"
+              : "export default exports.__esModule ? exports.default : exports;";
+          let exportsMap = exports.map(e => [e, makeLegalIdentifier(e)]);
+          if (exportsMap.some(([e]) => e === "default")) {
+            if (behavior === "node") {
+              exportsMap = exportsMap.filter(([e]) => e !== "default");
+            } else {
+              exportDefault = "";
+            }
+          }
+          let reexports = cjsExports.reexports.map(e => `export * from ${JSON.stringify(e)};`).join("");
+          let transformed: string[];
+          if (sideEffects === false) {
+            transformed = [
+              // make sure we don't manipulate the first line so that sourcemap is fine
+              reexports + "var mod, exports = /* @__PURE__ */ ((exports, module) => {" + contents,
+              "return module.exports})((mod = { exports: {} }).exports, mod); " + exportDefault,
+            ];
+            if (exportsMap.length > 0) {
+              for (const [e, name] of exportsMap) {
+                transformed.push(`var ${name} = /* @__PURE__ */ (() => exports[${JSON.stringify(e)}])();`);
+              }
+              transformed.push(
+                `export { ${exportsMap
+                  .map(([e, name]) => (e === name ? e : `${name} as ${JSON.stringify(e)}`))
+                  .join(", ")} };`
+              );
+            }
+          } else {
+            transformed = [
+              reexports + "var exports = {}, module = { exports }; {" + contents,
+              "}; exports = module.exports; " + exportDefault,
+            ];
+            if (exportsMap.length > 0) {
+              transformed.push(
+                `var { ${exportsMap
+                  .map(([e, name]) => (e === name ? e : `${JSON.stringify(e)}: ${name}`))
+                  .join(", ")} } = exports;`,
+                `export { ${exportsMap
+                  .map(([e, name]) => (e === name ? e : `${name} as ${JSON.stringify(e)}`))
+                  .join(", ")} };`
+              );
+            }
+          }
+          contents = transformed.join("\n") + (sourcemap ? "\n" + sourcemap : "");
+        }
+
         function makeName(path: string) {
-          let name = `__import_${path
-            .replace(/-(\w)/g, (_, x) => x.toUpperCase())
-            .replace(/[^$_a-zA-Z0-9]/g, "_")}`;
+          let name = `__import_${makeLegalIdentifier(path)}`;
 
           if (contents.includes(name)) {
             let suffix = 2;
@@ -84,7 +240,8 @@ export function commonjs({ filter = /\.c?js$/ }: CommonJSOptions = {}): Plugin {
             offset += name.length - (end - start);
           }
 
-          contents = [...imports, "exports;", contents].join("");
+          // if we have transformed this module (i.e. having `cjsExports`), don't make the file commonjs
+          contents = [...imports, cjsExports ? "exports;" : "", contents].join("");
 
           return { contents };
         }

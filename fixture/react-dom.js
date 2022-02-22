@@ -1,7 +1,9 @@
-// simulates conditional re-export
+exports.__esModule = true;
+exports.default = {};
+exports.foo = 42;
 
 if (process.env.NODE_ENV === "production") {
-  module.exports = require("./react-dom-production");
+  exports.render = require("./react-dom-production").render;
 } else {
-  module.exports = require("./react-dom-development");
+  exports.render = require("./react-dom-development").render;
 }
