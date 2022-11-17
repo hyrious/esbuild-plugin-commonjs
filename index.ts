@@ -202,7 +202,7 @@ export function commonjs({
         try {
           ({ warnings } = await require_esbuild().transform(contents, { format: "esm", logLevel: "silent" }));
         } catch (err) {
-          ({ warnings } = err);
+          ({ warnings } = err as any);
         }
 
         let lines = contents.split("\n");
