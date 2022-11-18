@@ -1,8 +1,11 @@
 {
   "editor.tabSize": 2,
   "editor.formatOnSave": true,
+  "prettier.enable": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
-    "source.sortImports": true
+    "source.sortImports": true,
+    "source.fixAll.eslint": false
   },
   "prettier.tabWidth": 2,
   "prettier.endOfLine": "auto",
