@@ -9,6 +9,6 @@ build({
   format: "esm",
   external: ["react"],
   define: {
-    "process.env.NODE_ENV": "production",
+    "process.env.NODE_ENV": '"production"',
   },
 }).catch(() => process.exit(1));
