@@ -1,6 +1,6 @@
 {
   "name": "@hyrious/esbuild-plugin-commonjs",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Bundle commonjs externals in es module in esbuild.",
   "author": "hyrious <hyrious@outlook.com>",
   "license": "MIT",
