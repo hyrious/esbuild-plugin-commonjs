@@ -2,21 +2,30 @@ name: Node.js Package
 
 on:
   push:
-    tags: "*"
+    tags: '*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v2
-      - uses: pnpm/action-setup@v2.0.1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
         with:
           version: latest
-          run_install: true
-      - run: pnpm build
-      - name: Publish Package
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+      - run: |
+          pnpm install
+          pnpm build
+      - run: pnpm publish --provenance --access public --no-git-checks
         env:
-          NPM_TOKEN: ${{secrets.NPM_TOKEN}}
-        run: |
-          pnpm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
-          pnpm publish --access public --no-git-checks
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

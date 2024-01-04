@@ -2,16 +2,8 @@
   "name": "@hyrious/esbuild-plugin-commonjs",
   "version": "0.2.2",
   "description": "Bundle commonjs externals in es module in esbuild.",
-  "main": "index.js",
-  "types": "index.d.ts",
-  "files": [
-    "index.js",
-    "index.js.map",
-    "index.ts",
-    "lexer.ts",
-    "utils.ts",
-    "index.d.ts"
-  ],
+  "author": "hyrious <hyrious@outlook.com>",
+  "license": "MIT",
   "keywords": [
     "esbuild",
     "plugin",
@@ -19,12 +11,23 @@
     "modules",
     "require"
   ],
-  "author": "hyrious <hyrious@outlook.com>",
-  "license": "MIT",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "index.js.map",
+    "index.ts",
+    "lexer.ts",
+    "utils.ts"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
   "scripts": {
     "build": "npm run build:js && npm run build:type",
-    "build:js": "esbuild index.ts --bundle --external:esbuild --external:cjs-module-lexer --sourcemap --sources-content=false --outfile=index.js --platform=node --target=node14",
-    "build:type": "esbuild-dev build-type.ts",
+    "build:js": "esbuild index.ts --bundle --packages=external --sourcemap --sources-content=false --outfile=index.js --platform=node --target=node14",
+    "build:type": "dts index.ts -o index.d.ts",
     "test": "esbuild-dev index.test.ts"
   },
   "peerDependencies": {
@@ -37,15 +40,10 @@
     }
   },
   "devDependencies": {
-    "@hyrious/esbuild-dev": "^0.8.6",
-    "@types/node": "^14",
-    "cjs-module-lexer": "^1.2.2",
-    "esbuild": "^0.15.14",
-    "rollup": "^3.3.0",
-    "rollup-plugin-dts": "^5.0.0",
-    "typescript": "^4.9.3"
-  },
-  "engines": {
-    "node": ">=14"
+    "@hyrious/dts": "^0.2.0",
+    "@hyrious/esbuild-dev": "^0.10.5",
+    "@types/node": "^20.10.6",
+    "cjs-module-lexer": "^1.2.3",
+    "esbuild": "^0.19.11"
   }
 }

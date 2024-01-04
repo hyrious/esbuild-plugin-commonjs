@@ -9,21 +9,21 @@ other bundlers from analyzing the dependencies. For example:
 
 ```js
 // some commonjs library, like react-dom
-var React = require("react");
+var React = require('react')
 
 // your esm code
-export { render } from "react-dom";
+export { render } from 'react-dom'
 
 // after esbuild --bundle
-var React = __require("react"); // <- you dislike this
-("...");
-export { render };
+var React = __require('react') // <- you dislike this
+// ...
+export { render }
 
 // with this plugin
-import __import_react from "react"; // <- you want this
-var React = __import_react;
-("...");
-export { render };
+import __import_react from 'react' // <- you want this
+var React = __import_react
+// ...
+export { render }
 ```
 
 This plugin was inspired by [a comment under esbuild#1921][4]
@@ -54,7 +54,7 @@ require("esbuild").build({
 ## Options
 
 ```js
-commonjs({ filter: /\.c?js$/, transform: false });
+commonjs({ filter: /\.c?js$/, transform: false })
 ```
 
 **filter** (default: `/\.c?js$/`)
@@ -63,14 +63,40 @@ A RegExp passed to [`onLoad()`](https://esbuild.github.io/plugins/#on-load) to
 match commonjs modules, it is recommended to set a custom filter to skip files
 for better performance.
 
+**requireReturnsDefault** (default: `true`)
+
+```ts
+requireReturnsDefault: boolean | ((path: string) => boolean)
+```
+
+Controls which style of import statement to use replacing require calls in commonjs modules.
+
+```js
+// input
+const foo = require('foo')
+
+// output if requireReturnsDefault is true (default behavior)
+import foo from 'foo'
+
+// output if requireReturnsDefault is false
+import * as foo from 'foo'
+```
+
+**ignore**
+
+Do not convert require calls to these modules. Note that this will cause esbuild
+to generate `__require()` wrappers and throw errors at runtime.
+
+```ts
+ignore: string[] | ((path: string) => boolean)
+```
+
 **transform** (default: `false`)
 
 Try to transform commonjs to es modules. This trick is done with [`cjs-module-lexer`](https://github.com/nodejs/cjs-module-lexer)
 to match the native (node) behavior as much as possible. Because this
 transformation may cause many bugs around the interop between cjs and esm,
 it can also accept a function to filter in the "safe to convert" modules by yourself.
-
-Type:
 
 ```ts
 transform: boolean | ((path: string) => {
@@ -81,9 +107,9 @@ transform: boolean | ((path: string) => {
 By default, if you toggle `transform` to `true`, it will convert this code:
 
 ```js
-exports.__esModule = true;
-exports.default = {};
-exports.foo = 42;
+exports.__esModule = true
+exports.default = {}
+exports.foo = 42
 ```
 
 To this:
@@ -119,6 +145,10 @@ exports, which sucks obviously.
 ### 0.2.0
 
 Add experimental option `transform` and `transformConfig`.
+
+### 0.2.3
+
+Add options `requireReturnsDefault` and `ignore`.
 
 ## License
 
