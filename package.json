@@ -11,6 +11,7 @@
     "modules",
     "require"
   ],
+  "repository": "hyrious/esbuild-plugin-commonjs",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
