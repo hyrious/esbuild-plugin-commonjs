@@ -6,9 +6,5 @@
   "editor.codeActionsOnSave": {
     "source.sortImports": "explicit",
     "source.fixAll.eslint": "never"
-  },
-  "prettier.tabWidth": 2,
-  "prettier.endOfLine": "auto",
-  "prettier.arrowParens": "avoid",
-  "prettier.printWidth": 110
+  }
 }

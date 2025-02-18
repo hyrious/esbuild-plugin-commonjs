@@ -127,8 +127,8 @@ export function commonjs({
     typeof ignore === 'function'
       ? ignore
       : Array.isArray(ignore)
-      ? (path: string) => ignore.includes(path)
-      : () => false
+        ? (path: string) => ignore.includes(path)
+        : () => false
 
   return {
     name: 'commonjs',
@@ -240,9 +240,9 @@ export function commonjs({
 
         let warnings: Message[]
         try {
-          ;({ warnings } = await require_esbuild().transform(contents, { format: 'esm', logLevel: 'silent' }))
+          ({ warnings } = await require_esbuild().transform(contents, { format: 'esm', logLevel: 'silent' }))
         } catch (err) {
-          ;({ warnings } = err as any)
+          ({ warnings } = err as any)
         }
 
         let lines = contents.split('\n')

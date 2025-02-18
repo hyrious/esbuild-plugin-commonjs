@@ -142,13 +142,13 @@ exports, which sucks obviously.
 
 ## Changelog
 
-### 0.2.0
-
-Add experimental option `transform` and `transformConfig`.
-
 ### 0.2.3
 
 Add options `requireReturnsDefault` and `ignore`.
+
+### 0.2.0
+
+Add experimental option `transform` and `transformConfig`.
 
 ## License
 
