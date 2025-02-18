@@ -1,7 +1,7 @@
 import type { Message, Plugin } from 'esbuild'
 import { promises } from 'fs'
 import { Lexer } from './lexer'
-import { cachedReduce, makeLegalIdentifier, orderedUniq } from './utils'
+import { cachedReduce, makeLegalIdentifier, orderedUniq, prepend } from './utils'
 
 export interface CommonJSOptions {
   /**
@@ -286,7 +286,7 @@ export function commonjs({
           }
 
           // if we have transformed this module (i.e. having `cjsExports`), don't make the file commonjs
-          contents = [...imports, cjsExports ? 'exports;' : '', contents].join('')
+          contents = prepend(contents, [...imports, cjsExports ? 'exports;' : ''].join(''))
 
           return { contents }
         }

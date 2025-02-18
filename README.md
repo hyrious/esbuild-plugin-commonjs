@@ -142,7 +142,11 @@ exports, which sucks obviously.
 
 ## Changelog
 
-### 0.2.3
+### 0.2.5
+
+Fix: skip shebangs when injecting import statements. ([#6](https://github.com/hyrious/esbuild-plugin-commonjs/issues/6))
+
+### 0.2.4
 
 Add options `requireReturnsDefault` and `ignore`.
 

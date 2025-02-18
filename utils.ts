@@ -28,3 +28,11 @@ export const makeLegalIdentifier = function makeLegalIdentifier(str: string) {
   }
   return identifier || "_";
 };
+
+export function prepend(code: string, prefix: string): string {
+  if (code.startsWith('#!')) {
+    const i = code.indexOf('\n') + 1;
+    return code.slice(0, i) + prefix + code.slice(i);
+  }
+  return prefix + code;
+}
