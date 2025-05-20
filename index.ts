@@ -1,15 +1,22 @@
-import type { Message, Plugin } from 'esbuild'
+import type { Message, OnLoadArgs, Plugin } from 'esbuild'
 import { promises } from 'fs'
+import { createMultiMatch } from './glob'
 import { Lexer } from './lexer'
 import { cachedReduce, makeLegalIdentifier, orderedUniq, prepend } from './utils'
 
 export interface CommonJSOptions {
   /**
    * The regexp passed to onLoad() to match commonjs files.
+   * Require calls in the files will be transformed to import statements.
    *
    * @default /\.c?js$/
    */
   filter?: RegExp
+
+  /**
+   * Further filter whether a file should be transformed.
+   */
+  include?: (args: OnLoadArgs) => boolean | null | undefined
 
   /**
    * _Experimental_: Transform commonjs to es modules. You have to install
@@ -57,14 +64,24 @@ export interface CommonJSOptions {
    * ```
    *
    * In which case you can set `requireReturnsDefault` to `false` to get the above output.
-   * Or use the callback style to control the behavior for each module.
+   * Or pass in a callback to control the behavior for each module.
    *
    * @default true
    */
   requireReturnsDefault?: boolean | ((path: string) => boolean)
 
   /**
-   * Don't replace require("ignored-modules"). Note that this will cause
+   * Only replace `require("included-modules")`.
+   * If `false`, it will replace all `require()` calls.
+   * If `external`, it uses the `external` option of esbuild.
+   * If `ignore` is also set, the final list is `only - ignore`.
+   *
+   * @default false
+   */
+  only?: false | 'external' | string[] | ((path: string) => boolean)
+
+  /**
+   * Don't replace `require("ignored-modules")`. Note that this will cause
    * esbuild generates the __require() wrapper which throw error at runtime.
    */
   ignore?: string[] | ((path: string) => boolean)
@@ -111,10 +128,12 @@ export interface TransformConfig {
 
 export function commonjs({
   filter = /\.c?js$/,
+  include,
   transform = false,
   transformConfig,
   requireReturnsDefault = true,
-  ignore,
+  only: only_,
+  ignore: ignore_,
 }: CommonJSOptions = {}): Plugin {
   const init_cjs_module_lexer = transform ? import('cjs-module-lexer') : undefined
 
@@ -123,22 +142,41 @@ export function commonjs({
       ? requireReturnsDefault
       : (_path: string) => requireReturnsDefault
 
-  const is_ignored =
-    typeof ignore === 'function'
-      ? ignore
-      : Array.isArray(ignore)
-        ? (path: string) => ignore.includes(path)
-        : () => false
+  const ignore =
+    typeof ignore_ === 'function'
+      ? ignore_
+      : Array.isArray(ignore_) && ignore_.length > 0
+        ? createMultiMatch(ignore_)
+        : false
 
   return {
     name: 'commonjs',
-    setup({ onLoad, esbuild }) {
+    setup({ onLoad, esbuild, initialOptions }) {
       let esbuild_shim: typeof import('esbuild') | undefined
       const require_esbuild = () => esbuild || (esbuild_shim ||= require('esbuild'))
       const read = promises.readFile
       const lexer = new Lexer()
 
+      if (only_ === 'external') {
+        only_ = initialOptions.external
+      }
+
+      const only =
+        typeof only_ === 'function'
+          ? only_
+          : Array.isArray(only_) && only_.length > 0
+            ? createMultiMatch(only_)
+            : false
+
+      const is_ignored = (path: string) => {
+        if (only && !only(path)) return true
+        if (ignore && ignore(path)) return true
+        return false
+      }
+
       onLoad({ filter }, async args => {
+        if (include && !include(args)) return
+
         let parseCJS: typeof import('cjs-module-lexer').parse | undefined
         if (init_cjs_module_lexer) {
           const { init, parse } = await init_cjs_module_lexer
@@ -204,7 +242,7 @@ export function commonjs({
               transformed.push(
                 `export { ${exportsMap
                   .map(([e, name]) => (e === name ? e : `${name} as ${JSON.stringify(e)}`))
-                  .join(', ')} };`
+                  .join(', ')} };`,
               )
             }
           } else {
@@ -219,7 +257,7 @@ export function commonjs({
                   .join(', ')} } = exports;`,
                 `export { ${exportsMap
                   .map(([e, name]) => (e === name ? e : `${name} as ${JSON.stringify(e)}`))
-                  .join(', ')} };`
+                  .join(', ')} };`,
               )
             }
           }
@@ -240,9 +278,9 @@ export function commonjs({
 
         let warnings: Message[]
         try {
-          ({ warnings } = await require_esbuild().transform(contents, { format: 'esm', logLevel: 'silent' }))
+          ;({ warnings } = await require_esbuild().transform(contents, { format: 'esm', logLevel: 'silent' }))
         } catch (err) {
-          ({ warnings } = err as any)
+          ;({ warnings } = err as any)
         }
 
         let lines = contents.split('\n')
@@ -294,5 +332,3 @@ export function commonjs({
     },
   }
 }
-
-export default commonjs

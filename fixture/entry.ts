@@ -1,2 +1,2 @@
 // @ts-expect-error
-export { render } from "./react-dom";
+export { render } from './react-dom'
