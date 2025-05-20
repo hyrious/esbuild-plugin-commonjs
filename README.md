@@ -47,7 +47,7 @@ require("esbuild").build({
   format: "esm",
   external: ["react"],
   outfile: "out.js",
-  plugins: [commonjs()],
+  plugins: [commonjs({ only: 'external' })],
 }).catch(() => process.exit(1));
 ```
 
@@ -57,75 +57,100 @@ require("esbuild").build({
 commonjs({ filter: /\.c?js$/, transform: false })
 ```
 
-**filter** (default: `/\.c?js$/`)
+- **filter** (default: `/\.c?js$/`)
 
-A RegExp passed to [`onLoad()`](https://esbuild.github.io/plugins/#on-load) to
-match commonjs modules, it is recommended to set a custom filter to skip files
-for better performance.
+  A RegExp passed to [`onLoad()`](https://esbuild.github.io/plugins/#on-load) to
+  match commonjs modules, it is recommended to set a custom filter to skip files
+  for better performance.
 
-**requireReturnsDefault** (default: `true`)
+- **include**
 
-```ts
-requireReturnsDefault: boolean | ((path: string) => boolean)
-```
+  Determine whether a file should be transformed after `filter` has take effect.
 
-Controls which style of import statement to use replacing require calls in commonjs modules.
+  Example:
 
-```js
-// input
-const foo = require('foo')
+  ```js
+  include: path => path.includes('node_modules/react')
+  ```
 
-// output if requireReturnsDefault is true (default behavior)
-import foo from 'foo'
+- **requireReturnsDefault** (default: `true`)
 
-// output if requireReturnsDefault is false
-import * as foo from 'foo'
-```
+  ```ts
+  requireReturnsDefault: boolean | ((path: string) => boolean)
+  ```
 
-**ignore**
+  Controls which style of import statement to use replacing require calls in commonjs modules.
 
-Do not convert require calls to these modules. Note that this will cause esbuild
-to generate `__require()` wrappers and throw errors at runtime.
+  ```js
+  // input
+  const foo = require('foo')
 
-```ts
-ignore: string[] | ((path: string) => boolean)
-```
+  // output if requireReturnsDefault is true (default behavior)
+  import foo from 'foo'
 
-**transform** (default: `false`)
+  // output if requireReturnsDefault is false
+  import * as foo from 'foo'
+  ```
 
-Try to transform commonjs to es modules. This trick is done with [`cjs-module-lexer`](https://github.com/nodejs/cjs-module-lexer)
-to match the native (node) behavior as much as possible. Because this
-transformation may cause many bugs around the interop between cjs and esm,
-it can also accept a function to filter in the "safe to convert" modules by yourself.
+- **only** (default: `false`)
 
-```ts
-transform: boolean | ((path: string) => {
-  behavior?: "node" | "babel", exports?: string[], sideEffects?: boolean
-} | null | void)
-```
+  Only convert require calls to these modules. You can also use wildcards here.
+  If `ignore` is also set, the final modules list would be `only - ignore`.
 
-By default, if you toggle `transform` to `true`, it will convert this code:
+  ```ts
+  only: false | 'external' | string[] | ((path: string) => boolean)
+  ```
 
-```js
-exports.__esModule = true
-exports.default = {}
-exports.foo = 42
-```
+  If `'external'`, it will use the `external` option from esbuild, which is likely the most common case.
 
-To this:
+- **ignore**
 
-<!-- prettier-ignore -->
-```js
-var exports = {}, module = { exports };
-{
-  exports.__esModule = true;
-  exports.default = {};
-  exports.foo = 42;
-}
-export default exports;
-var { foo } = exports;
-export { foo };
-```
+  Do not convert require calls to these modules. Note that this will cause esbuild
+  to generate `__require()` wrappers and throw errors at runtime.
+
+  ```ts
+  ignore: string[] | ((path: string) => boolean)
+  ```
+
+<details><summary><strong>Experimental options</strong></summary>
+
+- **transform** (default: `false`)
+
+  Try to transform commonjs to es modules. This trick is done with [`cjs-module-lexer`](https://github.com/nodejs/cjs-module-lexer)
+  to match the native (node) behavior as much as possible. Because this
+  transformation may cause many bugs around the interop between cjs and esm,
+  it can also accept a function to filter in the "safe to convert" modules by yourself.
+
+  ```ts
+  transform: boolean | ((path: string) => {
+    behavior?: "node" | "babel", exports?: string[], sideEffects?: boolean
+  } | null | void)
+  ```
+
+  By default, if you toggle `transform` to `true`, it will convert this code:
+
+  ```js
+  exports.__esModule = true
+  exports.default = {}
+  exports.foo = 42
+  ```
+
+  To this:
+
+  <!-- prettier-ignore -->
+  ```js
+  var exports = {}, module = { exports };
+  {
+    exports.__esModule = true;
+    exports.default = {};
+    exports.foo = 42;
+  }
+  export default exports;
+  var { foo } = exports;
+  export { foo };
+  ```
+
+</details>
 
 ## This is not equal to [@rollup/plugin-commonjs][2].
 
